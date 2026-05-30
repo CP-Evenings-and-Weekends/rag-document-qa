@@ -108,7 +108,7 @@ Try at least three kinds of questions:
 - Why do we batch embeddings (one API call per 20 chunks) instead of one call per chunk?  How much faster is it in practice?  How much cheaper?
 
 ## Stretch
-- **Re-ranking**: implement the lesson's incomplete `rerank_chunks` function — make a second LLM call that takes the top-10 chunks and the query, returns the indices in best→worst order, and only the top-3 of those reranked chunks go into the final prompt.
+- **Re-ranking**: wire the lesson's `rerank_chunks` function into your retrieval pipeline — fetch the top-10 from pgvector, run them through the LLM reranker, and only feed the top-3 of those reranked chunks into the final answer prompt. Does the answer quality change on your harder questions?
 - **Metadata filter**: extend `POST /api/ask/` to accept an optional `document_id` so the user can scope the search to a single document.
 - **Source citations inline**: change the prompt to ask the LLM to cite sources in the format `[Source: <title>]` after each claim it makes.
 - **Streaming**: stream the LLM's answer back to the client using SSE so the answer renders word-by-word in a frontend.
