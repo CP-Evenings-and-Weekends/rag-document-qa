@@ -2,7 +2,7 @@ services:
   db:
     image: pgvector/pgvector:pg16
     environment:
-      POSTGRES_DB: rag_qa
+      POSTGRES_DB: study_assistant
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: postgres
     ports:
