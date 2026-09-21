@@ -10,7 +10,8 @@ This repo is the **starter you clone at the beginning of Tuesday's class**, and 
 
 ```bash
 cp .env.example .env
-# Put your LLM_API_KEY in .env (or use Ollama — see the lesson)
+# Defaults work as-is on the class Ollama stack; make sure Ollama is running
+# and Monday's models are pulled (ollama list should show nomic-embed-text and llama3.2)
 docker compose up -d
 python3 -m venv venv && source venv/bin/activate
 pip install -r requirements.txt
