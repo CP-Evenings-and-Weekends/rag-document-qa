@@ -1,117 +1,65 @@
 # RAG Document Q&A
 
-Take today's [RAG Pattern lesson](https://github.com/CP-Evenings-and-Weekends/curriculum/blob/main/Module_06_AI_LLMs/week17/day2/README.md) and build it end-to-end as your own project: ingest documents, chunk + embed them, retrieve the most relevant chunks for a question, and have the LLM answer using just that context.
+Tonight's homework is to **finish and exercise the build from today's [RAG Pattern lesson](https://github.com/CP-Evenings-and-Weekends/curriculum/blob/main/Module_06_AI_LLMs/week17/day2/README.md)**: the start of the AI Study Assistant. This is the same codebase you will extend with conversations on Thursday and harden on Saturday, so getting it solid tonight pays off all week.
 
-The repo ships the same `docker-compose.yml` and `requirements.txt` you used for yesterday's pgvector exercise, so the infrastructure isn't the work — the work is the RAG pattern itself.
+There is no new app to build here. If you finished the lesson in class, tonight is about proving it works and understanding *why* it works.
 
 ## Setup
 
+Keep working in the `study_assistant` project you started in class. If you didn't get the environment running in class, this repo ships the same `docker-compose.yml`, `requirements.txt`, and `.env.example` the lesson uses:
+
 ```bash
 cp .env.example .env
-# Put your LLM_API_KEY in .env (or use Ollama — see lesson)
+# Put your LLM_API_KEY in .env (or use Ollama — see the lesson)
 docker compose up -d
 python3 -m venv venv && source venv/bin/activate
 pip install -r requirements.txt
+django-admin startproject config .
+python manage.py startapp assistant
 ```
 
-Then scaffold a fresh Django project + `rag` app (don't paste yesterday's project — start clean to lock the pattern in):
+Then follow the lesson to build `chunking.py`, `embeddings.py`, `rag.py`, the models, and the views.
 
-```bash
-django-admin startproject rag_project .
-python manage.py startapp rag
-```
+## Assignment 1 — Get the three endpoints working
 
-Wire `"rag"` into `INSTALLED_APPS`, configure `DATABASES` against the pgvector container, and you're ready to build.
+Everything from the lesson's build, verified with curl:
 
-## Assignment 1 — Document ingestion management command
-
-A Django management command that turns a text file into searchable chunks.
+| Method | Endpoint | Verifies |
+|---|---|---|
+| `POST` | `/api/documents/` | Upload → paragraph-chunk → batch-embed → save chunks |
+| `GET`  | `/api/documents/` | List with `chunk_count` per document |
+| `POST` | `/api/ask/` | Embed question → top-5 chunks via `CosineDistance` → grounded LLM answer |
 
 ### Required behavior
 
-```bash
-python manage.py ingest_document path/to/file.txt --title "Company Handbook"
-```
+1. Ingestion chunks with the lesson's paragraph-based `chunk_text` (`max_chunk_size=800`)
+2. Embeddings are generated with **one batch API call** per document (`generate_embeddings_batch`), not one call per chunk
+3. Chunks are saved with `bulk_create`
+4. The ask endpoint's system prompt instructs the LLM to **only** use the provided `<context>`, to **say so** if the context is insufficient, and **never** to fabricate
+5. The response returns the answer AND the source chunks (title + ~200-char preview + a relevance score derived from distance)
 
-The command should:
+## Assignment 2 — Exercise it
 
-1. Read the file from disk
-2. Create a `Document` row (full content stored)
-3. Chunk the content using **paragraph-based** chunking with `max_chunk_size=1000` chars
-4. **Batch-embed** the chunks (the lesson's `generate_embeddings_batch` — one API call per batch of 20, not one per chunk)
-5. Bulk-create `DocumentChunk` rows with `chunk_text`, `chunk_index`, `embedding`, and a FK to the Document
+Upload **at least two documents on different topics** (paste in a long README, a blog post, your own study notes). Then ask **at least five questions** and save the questions + answers in a `NOTES.md` in your repo. Your five questions must include:
 
-### Models you need
+- **A question one document clearly covers** — the answer should come from the right source
+- **A question the documents don't cover at all** — the LLM should admit it, not make something up
+- **A question where the "wrong" document is a near-miss** — does retrieval pull chunks from the right one?
 
-- `Document` — `title`, `content`, `created_at`
-- `DocumentChunk` — FK to Document (`related_name="chunks"`), `chunk_text`, `chunk_index`, `embedding = VectorField(dimensions=1536)`
-
-### Verify
-
-Drop a real text file (a long blog post, a README, a public-domain book chapter) and run the command.  Inspect via Django shell:
-
-```python
-Document.objects.count()           # 1
-DocumentChunk.objects.count()      # many
-DocumentChunk.objects.first().embedding[:5]  # first 5 floats of the vector
-```
-
-## Assignment 2 — Q&A endpoint
-
-A DRF endpoint that takes a question, retrieves the top 3 most relevant chunks, and asks the LLM to answer using only those chunks.
-
-### Required endpoint
-
-`POST /api/ask/` accepting `{"question": "..."}`.  Returns:
-
-```json
-{
-  "answer": "<LLM-generated answer>",
-  "sources": [
-    {
-      "document": "Company Handbook",
-      "text_preview": "...",
-      "relevance_score": 0.89
-    }
-  ]
-}
-```
-
-### Required behavior
-
-1. Embed the question
-2. Use `CosineDistance("embedding", query_embedding)` to find the top **3** most relevant chunks across **all** documents
-3. Build the LLM prompt:
-    - System: instructs the LLM to **only** use the provided context, **say so** if the context is insufficient, and **never** fabricate
-    - User: the question itself
-4. Call the LLM with `temperature=0.3` (we want grounded, not creative)
-5. Return the answer AND the source chunks (title + a ~200-char preview + a relevance score derived from distance)
-
-### Verify
-
-```bash
-curl -X POST http://localhost:8000/api/ask/ \
-  -H "Content-Type: application/json" \
-  -d '{"question": "What does the document say about onboarding?"}'
-```
-
-Try at least three kinds of questions:
-
-- **A question the document clearly covers** — should answer from sources
-- **A question the document doesn't cover at all** — the LLM should say so, not make something up
-- **A question where the answer requires synthesizing two chunks** — does the LLM blend them sensibly?
+For each, note one line: did the answer come from the right chunks? (The `sources` array tells you.)
 
 ## Things to think about
-- The lesson's example uses a 0.3 temperature on the generation step.  What happens if you bump it to 0.9?  Why is lower better for RAG?
-- If the top-3 chunks are all from the same document, is that good or bad?  When would you want diverse documents in your top-k?
-- The lesson explicitly tells the LLM "do not make up information that is not in the context."  Try **removing** that instruction and asking a question the docs don't cover.  Does the LLM hallucinate?
-- Why do we batch embeddings (one API call per 20 chunks) instead of one call per chunk?  How much faster is it in practice?  How much cheaper?
+
+- The lesson uses `temperature=0.3` on the generation step. What happens if you bump it to 0.9? Why is lower better for RAG?
+- If the top-5 chunks are all from the same document, is that good or bad? When would you want diverse documents in your top-k?
+- The system prompt explicitly says "do not make up information." Try **removing** that line and asking a question the docs don't cover. Does the LLM hallucinate?
+- Why do we batch embeddings (one API call per document) instead of one call per chunk? How much faster is it? How much cheaper?
 
 ## Stretch
-- **Re-ranking**: wire the lesson's `rerank_chunks` function into your retrieval pipeline — fetch the top-10 from pgvector, run them through the LLM reranker, and only feed the top-3 of those reranked chunks into the final answer prompt. Does the answer quality change on your harder questions?
+
+- **Chunk size experiment**: re-ingest one document with `max_chunk_size=200` and compare answers to the same questions against the 800-char version. Write 2-3 sentences in `NOTES.md` on what changed and why.
 - **Metadata filter**: extend `POST /api/ask/` to accept an optional `document_id` so the user can scope the search to a single document.
-- **Source citations inline**: change the prompt to ask the LLM to cite sources in the format `[Source: <title>]` after each claim it makes.
-- **Streaming**: stream the LLM's answer back to the client using SSE so the answer renders word-by-word in a frontend.
-- **Two chunking strategies**: implement both fixed-size *and* paragraph-based chunking, run the same query against each, and write up which strategy worked better and why.
+- **Inline source citations**: change the prompt to ask the LLM to cite sources in the format `[Source: <title>]` after each claim it makes.
+- **Chunk overlap**: add an `overlap` parameter to `chunk_text` so neighboring chunks share their boundary text. Does it help on questions whose answer straddles a paragraph break?
 
 > Stuck? Have a code error? Use the ["4 Before Me"](https://docs.google.com/document/d/1nseOs5oabYBKNHfwJZNAR7GlU0zkZxNagsw63AD7XV0/edit) debugging checklist to help you solve it!
