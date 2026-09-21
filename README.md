@@ -6,7 +6,7 @@ There is no new app to build here. If you finished the lesson in class, tonight 
 
 ## Setup
 
-Keep working in the `study_assistant` project you started in class. If you didn't get the environment running in class, this repo ships the same `docker-compose.yml`, `requirements.txt`, and `.env.example` the lesson uses:
+This repo is the **starter you clone at the beginning of Tuesday's class**, and the codebase you keep working in tonight, Thursday, and Saturday. The Django scaffold is already wired up: `config/` project, an empty `assistant` app, PostgreSQL settings pointing at the Docker container, `.env` loading, and a first migration that enables the pgvector extension. Your job is the AI parts, not the plumbing.
 
 ```bash
 cp .env.example .env
@@ -14,11 +14,11 @@ cp .env.example .env
 docker compose up -d
 python3 -m venv venv && source venv/bin/activate
 pip install -r requirements.txt
-django-admin startproject config .
-python manage.py startapp assistant
+python manage.py migrate     # smoke test: should apply cleanly, no edits needed
+python manage.py runserver   # smoke test: http://localhost:8000/admin/ should load
 ```
 
-Then follow the lesson to build `chunking.py`, `embeddings.py`, `rag.py`, the models, and the views.
+If both smoke tests pass, your environment works. Then follow the lesson to build the models, `chunking.py`, `embeddings.py`, `rag.py`, the serializers, and the views. (When you run `makemigrations` after writing the models, the new migration automatically runs after the shipped `0001_enable_pgvector`, so there is no migration file to hand-edit this time.)
 
 ## Assignment 1 — Get the three endpoints working
 
