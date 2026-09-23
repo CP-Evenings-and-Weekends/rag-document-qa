@@ -13,6 +13,7 @@ services:
     build: .
     environment:
       - DB_HOST=db
+      - LLM_API_BASE_URL=http://host.docker.internal:11434
     ports:
       - "8000:8000"
     volumes:
