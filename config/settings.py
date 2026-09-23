@@ -90,3 +90,11 @@ USE_TZ = True
 STATIC_URL = 'static/'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+LLM_API_BASE_URL = os.getenv("LLM_API_BASE_URL", "http://localhost:11434")
+
+LLM_API_KEY = os.getenv("LLM_API_KEY", "")
+
+EMBEDDING_MODEL = os.getenv("EMBEDDING_MODEL", "nomic-embed-text")
+
+LLM_MODEL = os.getenv("LLM_MODEL", "llama3.2")
